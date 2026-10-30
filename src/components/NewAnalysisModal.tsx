@@ -30,12 +30,12 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   const handleLoadSampleDataset = () => {
-    setNama('Analisis Sekuens E. coli K-12 MG1655');
-    setR1FileName('ecoli_simulated_R1.fastq.gz');
+    setNama('string');
+    setR1FileName('test_R1.fastq.gz');
     setR1Content(SAMPLE_FASTQ_SNIPPET);
-    setR2FileName('ecoli_simulated_R2.fastq.gz');
+    setR2FileName('test_R2.fastq.gz');
     setR2Content(SAMPLE_FASTQ_SNIPPET);
-    setRefFileName('GCF_000005845.2_ASM584v2_genomic.fna');
+    setRefFileName('ref.fna');
     setRefContent(SAMPLE_FASTA_SNIPPET);
     setValidated(true);
     setValidationErrors([]);
@@ -153,10 +153,10 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
             <div>
               <div className="font-semibold text-emerald-300 flex items-center gap-1.5 text-xs">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                Data Uji Benchmark Cepat (E. coli K-12)
+                Data Uji Benchmark "string" (ref.fna &amp; test_R1/R2)
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                Isi formulir secara instan menggunakan dataset sekuens genom E. coli K-12 MG1655 (NCBI RefSeq).
+                Isi formulir secara instan menggunakan dataset acuan string (ref.fna, test_R1.fastq.gz, test_R2.fastq.gz).
               </p>
             </div>
             <button
@@ -164,7 +164,7 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
               onClick={handleLoadSampleDataset}
               className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3 py-1.5 rounded-lg shadow transition cursor-pointer"
             >
-              Muat Data Uji
+              Muat Data Uji "string"
             </button>
           </div>
 

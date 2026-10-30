@@ -20,12 +20,12 @@ export const NewAnalysisView: React.FC<NewAnalysisViewProps> = ({ onStartAnalysi
   const [error, setError] = useState<string | null>(null);
 
   const handleLoadSample = () => {
-    setNama('E. coli K-12 MG1655 — Trial Run');
-    setOrganisme('Escherichia coli');
+    setNama('string');
+    setOrganisme('Escherichia coli str. K-12 substr. MG1655');
     setMode('paired');
-    setR1Name('ecoli_K12_R1.fastq.gz');
-    setR2Name('ecoli_K12_R2.fastq.gz');
-    setRefName('ecoli_K12_MG1655.fasta');
+    setR1Name('test_R1.fastq.gz');
+    setR2Name('test_R2.fastq.gz');
+    setRefName('ref.fna');
     setError(null);
   };
 
@@ -119,7 +119,7 @@ export const NewAnalysisView: React.FC<NewAnalysisViewProps> = ({ onStartAnalysi
             className="flex items-center gap-1.5 border border-blue-400 hover:border-blue-500 text-blue-600 bg-white hover:bg-blue-50 font-semibold text-xs px-3.5 py-2 rounded-lg transition cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
-            <span>Isi Data Uji Cepat</span>
+            <span>Muat Dataset Uji "string" (ref.fna, test_R1/R2)</span>
           </button>
         </div>
       </div>

@@ -14,9 +14,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const recentRuns = [
     {
-      id: 'ecoli-k12-benchmark',
-      name: 'E. coli K-12 MG1655',
-      variants: '128 varian',
+      id: 'string',
+      name: 'string (test_R1/R2 + ref.fna)',
+      variants: '2.240 varian',
       status: 'Berhasil',
       statusColor: 'text-blue-600',
       dotColor: 'bg-yellow-400',

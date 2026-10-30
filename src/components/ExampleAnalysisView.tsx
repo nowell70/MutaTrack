@@ -11,19 +11,28 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
   analysis,
   onOpenResults,
 }) => {
+  const an = analysis.stats?.annotation;
+  const al = analysis.stats?.alignment;
+
+  const totalVarian = an?.total_varian ?? 2240;
+  const snp = an?.snp ?? 1763;
+  const indel = an?.indel ?? 477;
+  const genTerdampak = an?.gen_terdampak ?? 1564;
+  const mappingRate = al?.persen_terpetakan ?? 100.0;
+
   return (
     <div className="w-full max-w-5xl mx-auto px-6 sm:px-10 py-8 space-y-8 bg-white">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-blue-600 uppercase mb-2">
           <span className="w-6 h-0.5 bg-yellow-400 inline-block" />
-          <span>TEST SAMPLE</span>
+          <span>TEST SAMPLE BENCHMARK</span>
         </div>
         <h1 className="text-3xl font-extrabold text-slate-950 tracking-tight">
-          Contoh Analisis &mdash; E. coli K-12 MG1655
+          Analisis Acuan &mdash; {analysis.nama}
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          Dataset genom referensi E. coli K-12 MG1655 sebagai sampel uji. Hasil sudah pra-hitung untuk eksplorasi cepat.
+          Dataset genom referensi E. coli K-12 MG1655 dengan bacaan sekuens test_R1 dan test_R2. Hasil telah terintegrasi untuk eksplorasi dan verifikasi instan.
         </p>
       </div>
 
@@ -34,10 +43,10 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
         </div>
         <div>
           <h3 className="text-sm font-bold text-slate-900">
-            Escherichia coli K-12 substrain MG1655
+            {analysis.organisme || 'Escherichia coli str. K-12 substr. MG1655'}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Genom referensi ~4.64 Mb &middot; Paired-end Illumina 150bp &middot; TEST SAMPLE
+            Genom referensi ~4.64 Mb (U00096.3) &middot; Paired-end Illumina 150bp &middot; 599.996 reads &middot; 100% Terpetakan
           </p>
         </div>
       </div>
@@ -46,7 +55,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-blue-600 uppercase">
           <span className="w-6 h-0.5 bg-yellow-400 inline-block" />
-          <span>FILE INPUT</span>
+          <span>FILE INPUT ACUAN</span>
         </div>
 
         <div className="border-t border-b border-slate-200 divide-y divide-slate-100 text-xs">
@@ -55,7 +64,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               <FileText className="w-4 h-4 text-blue-600" />
               <span className="font-semibold">FASTQ R1</span>
             </div>
-            <span className="font-mono text-slate-500">ecoli_K12_R1.fastq.gz</span>
+            <span className="font-mono text-slate-700 font-medium">{analysis.files.r1 || 'test_R1.fastq.gz'}</span>
           </div>
 
           <div className="flex items-center justify-between py-2.5">
@@ -63,7 +72,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               <FileText className="w-4 h-4 text-blue-600" />
               <span className="font-semibold">FASTQ R2</span>
             </div>
-            <span className="font-mono text-slate-500">ecoli_K12_R2.fastq.gz</span>
+            <span className="font-mono text-slate-700 font-medium">{analysis.files.r2 || 'test_R2.fastq.gz'}</span>
           </div>
 
           <div className="flex items-center justify-between py-2.5">
@@ -71,7 +80,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               <FileText className="w-4 h-4 text-blue-600" />
               <span className="font-semibold">Reference</span>
             </div>
-            <span className="font-mono text-slate-500">ecoli_K12_MG1655.fasta</span>
+            <span className="font-mono text-slate-700 font-medium">{analysis.files.reference || 'ref.fna'}</span>
           </div>
         </div>
       </div>
@@ -83,7 +92,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
             TOTAL VARIAN
           </div>
           <div className="text-4xl font-extrabold text-blue-600 tracking-tight font-mono mt-1">
-            128
+            {totalVarian.toLocaleString()}
           </div>
         </div>
 
@@ -92,7 +101,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
             SNP
           </div>
           <div className="text-4xl font-extrabold text-blue-600 tracking-tight font-mono mt-1">
-            89
+            {snp.toLocaleString()}
           </div>
         </div>
 
@@ -101,7 +110,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
             INDEL
           </div>
           <div className="text-4xl font-extrabold text-blue-600 tracking-tight font-mono mt-1">
-            39
+            {indel.toLocaleString()}
           </div>
         </div>
 
@@ -110,7 +119,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
             GEN TERPENGARUH
           </div>
           <div className="text-4xl font-extrabold text-blue-600 tracking-tight font-mono mt-1">
-            51
+            {genTerdampak.toLocaleString()}
           </div>
         </div>
       </div>
@@ -131,7 +140,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               ALIGNER
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              BWA-MEM
+              {analysis.config.aligner || 'BWA-MEM'}
             </div>
           </div>
 
@@ -141,7 +150,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               VARIANT CALLER
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              GATK HaplotypeCaller
+              {analysis.config.variant_caller || 'BCFtools call (haploid)'}
             </div>
           </div>
 
@@ -151,7 +160,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               ANNOTATION
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              SnpEff
+              {analysis.config.annotation_tool || 'SnpEff'}
             </div>
           </div>
 
@@ -161,7 +170,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               MIN QUALITY
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              30 phred
+              {analysis.config.min_qual} phred
             </div>
           </div>
 
@@ -171,7 +180,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               MIN DEPTH
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              10x
+              {analysis.config.min_depth}x
             </div>
           </div>
 
@@ -181,7 +190,7 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
               MAPPING RATE
             </div>
             <div className="text-sm font-bold text-slate-900 mt-0.5">
-              99.43%
+              {mappingRate}%
             </div>
           </div>
         </div>
@@ -190,8 +199,8 @@ export const ExampleAnalysisView: React.FC<ExampleAnalysisViewProps> = ({
       {/* Bottom Bar */}
       <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-xs text-slate-600">
-          <CheckCircle2 className="w-4 h-4 text-blue-600" />
-          <span>Hasil sudah siap &mdash; jelajahi tabel varian, grafik, dan detail.</span>
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span>Hasil analisis siap &mdash; jelajahi tabel 2.240 varian, metrik fungsional, dan unduh laporan PDF resmi.</span>
         </div>
 
         <button

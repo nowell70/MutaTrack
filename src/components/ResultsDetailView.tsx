@@ -189,6 +189,16 @@ export const ResultsDetailView: React.FC<ResultsDetailViewProps> = ({
             <span>{isExecuting ? 'Memproses...' : 'Jalankan Ulang'}</span>
           </button>
 
+          {/* Direct PDF Download matching string.pdf */}
+          <button
+            onClick={() => downloadPdf(analysis, variants)}
+            className="flex items-center gap-1.5 border border-rose-200 hover:border-rose-400 bg-rose-50/70 hover:bg-rose-100/70 text-rose-700 text-xs font-semibold px-3 py-2 rounded-lg shadow-xs transition cursor-pointer"
+            title="Unduh laporan PDF dengan format resmi sesuai file string.pdf"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>Unduh PDF Resmi</span>
+          </button>
+
           {/* Export Dropdown */}
           <div className="relative">
             <button

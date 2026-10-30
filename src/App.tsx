@@ -112,7 +112,7 @@ export const App: React.FC = () => {
   };
 
   const benchmarkAnalysis =
-    analyses.find((a) => a.id === 'ecoli-k12-benchmark') || analyses[0];
+    analyses.find((a) => a.id === 'string' || a.nama === 'string') || analyses[0];
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col">

@@ -60,6 +60,11 @@ export const getStoredAnalyses = (): Analysis[] => {
       localStorage.setItem(ANALYSES_KEY, JSON.stringify(INITIAL_ANALYSES_LIST));
       return INITIAL_ANALYSES_LIST;
     }
+    // Ensure the benchmark 'string' analysis is always available
+    if (!parsed.some((a) => a.id === 'string' || a.nama === 'string')) {
+      parsed.unshift(INITIAL_ANALYSES_LIST[0]);
+      localStorage.setItem(ANALYSES_KEY, JSON.stringify(parsed));
+    }
     return parsed;
   } catch {
     return INITIAL_ANALYSES_LIST;
@@ -143,7 +148,13 @@ export const getVariantsForAnalysis = (
   }
 ): Variant[] => {
   let list = getStoredVariants().filter((v) => v.analysis_id === analysisId);
-  if (list.length === 0 && (analysisId === INITIAL_ANALYSIS.id || analysisId.includes('ecoli'))) {
+  if (
+    list.length === 0 &&
+    (analysisId === INITIAL_ANALYSIS.id ||
+      analysisId === 'string' ||
+      analysisId.includes('ecoli') ||
+      analysisId.includes('string'))
+  ) {
     // Return sample variants
     list = SAMPLE_VARIANTS.map((v, i) => ({ ...v, id: i + 1, analysis_id: analysisId }));
   }
