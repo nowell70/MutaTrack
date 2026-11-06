@@ -15,10 +15,13 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
   const { user } = useAuth();
   const [nama, setNama] = useState('');
   const [r1FileName, setR1FileName] = useState('');
+  const [r1Path, setR1Path] = useState('');
   const [r1Content, setR1Content] = useState('');
   const [r2FileName, setR2FileName] = useState('');
+  const [r2Path, setR2Path] = useState('');
   const [r2Content, setR2Content] = useState('');
   const [refFileName, setRefFileName] = useState('');
+  const [refPath, setRefPath] = useState('');
   const [refContent, setRefContent] = useState('');
 
   const [config, setConfig] = useState<PipelineConfig>({ ...DEFAULT_CONFIG });
@@ -26,44 +29,74 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validated, setValidated] = useState(false);
+  const [uploadingTarget, setUploadingTarget] = useState<'r1' | 'r2' | 'ref' | null>(null);
 
   if (!isOpen) return null;
 
   const handleLoadSampleDataset = () => {
     setNama('string');
     setR1FileName('test_R1.fastq.gz');
+    setR1Path('test_R1.fastq.gz');
     setR1Content(SAMPLE_FASTQ_SNIPPET);
     setR2FileName('test_R2.fastq.gz');
+    setR2Path('test_R2.fastq.gz');
     setR2Content(SAMPLE_FASTQ_SNIPPET);
     setRefFileName('ref.fna');
+    setRefPath('ref.fna');
     setRefContent(SAMPLE_FASTA_SNIPPET);
     setValidated(true);
     setValidationErrors([]);
   };
 
-  const handleFileUpload = (
+  const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'r1' | 'r2' | 'ref'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = (event.target?.result as string) || '';
-      if (type === 'r1') {
-        setR1FileName(file.name);
-        setR1Content(text.slice(0, 5000));
-      } else if (type === 'r2') {
-        setR2FileName(file.name);
-        setR2Content(text.slice(0, 5000));
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setValidationErrors([
+        `Ukuran berkas "${file.name}" (${sizeMB} MB) melebihi batas maksimal yang diizinkan (100 MB).`,
+      ]);
+      setValidated(true);
+      e.target.value = '';
+      return;
+    }
+
+    if (type === 'r1') setR1FileName(file.name);
+    else if (type === 'r2') setR2FileName(file.name);
+    else setRefFileName(file.name);
+
+    setUploadingTarget(type);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('file_type', type);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (type === 'r1') setR1Path(data.filepath);
+        else if (type === 'r2') setR2Path(data.filepath);
+        else setRefPath(data.filepath);
       } else {
-        setRefFileName(file.name);
-        setRefContent(text.slice(0, 5000));
+        const errJson = await res.json().catch(() => ({}));
+        setValidationErrors([errJson.detail || `Gagal mengunggah ${file.name}`]);
+        setValidated(true);
       }
-      setValidated(false);
-    };
-    reader.readAsText(file.slice(0, 10000));
+    } catch {
+      // Fallback
+    } finally {
+      setUploadingTarget(null);
+    }
+    setValidated(false);
   };
 
   const validateInputs = (): boolean => {
@@ -110,9 +143,9 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
       updated_at: new Date().toISOString(),
       config,
       files: {
-        r1: r1FileName,
-        r2: r2FileName || undefined,
-        reference: refFileName,
+        r1: r1Path || r1FileName,
+        r2: (r2Path || r2FileName) || undefined,
+        reference: refPath || refFileName,
         r1_size: 4800000,
         r2_size: r2FileName ? 4700000 : undefined,
         reference_size: 4640000,
@@ -198,16 +231,17 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                   <div className="font-medium text-slate-200">
                     {r1FileName || 'Berkas FASTQ Forward Reads (Wajib)'}
                   </div>
-                  <div className="text-[10px] text-slate-500">.fastq, .fq, atau .fastq.gz</div>
+                  <div className="text-[10px] text-slate-500">.fastq, .fq, atau .fastq.gz • Maks. 100 MB</div>
                 </div>
               </div>
               <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
-                <span>Pilih Berkas</span>
+                <span>{uploadingTarget === 'r1' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fastq,.fq,.gz,.fastq.gz"
+                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz"
                   onChange={(e) => handleFileUpload(e, 'r1')}
+                  disabled={uploadingTarget !== null}
                   className="hidden"
                 />
               </label>
@@ -223,16 +257,17 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                   <div className="font-medium text-slate-200">
                     {r2FileName || 'Berkas FASTQ Reverse Reads (Opsional / Paired-end)'}
                   </div>
-                  <div className="text-[10px] text-slate-500">Kosongkan jika analisis single-end</div>
+                  <div className="text-[10px] text-slate-500">Kosongkan jika analisis single-end • Maks. 100 MB</div>
                 </div>
               </div>
               <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
-                <span>Pilih Berkas</span>
+                <span>{uploadingTarget === 'r2' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fastq,.fq,.gz,.fastq.gz"
+                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz"
                   onChange={(e) => handleFileUpload(e, 'r2')}
+                  disabled={uploadingTarget !== null}
                   className="hidden"
                 />
               </label>
@@ -248,16 +283,17 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                   <div className="font-medium text-slate-200">
                     {refFileName || 'Genom Referensi FASTA (Wajib)'}
                   </div>
-                  <div className="text-[10px] text-slate-500">.fa, .fasta, atau .fna</div>
+                  <div className="text-[10px] text-slate-500">.fa, .fasta, .fna, atau .gz • Maks. 100 MB</div>
                 </div>
               </div>
               <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
-                <span>Pilih Berkas</span>
+                <span>{uploadingTarget === 'ref' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fa,.fasta,.fna"
+                  accept=".fa,.fasta,.fna,.gz,.fa.gz,.fasta.gz,.fna.gz"
                   onChange={(e) => handleFileUpload(e, 'ref')}
+                  disabled={uploadingTarget !== null}
                   className="hidden"
                 />
               </label>

@@ -198,9 +198,9 @@ export const checkFastqContent = (filename: string, content?: string): string | 
 };
 
 export const checkFastaContent = (filename: string, content?: string): string | null => {
-  const cleanName = filename.toLowerCase();
+  const cleanName = filename.toLowerCase().replace('.gz', '');
   if (!cleanName.endsWith('.fa') && !cleanName.endsWith('.fasta') && !cleanName.endsWith('.fna')) {
-    return 'Ekstensi genom referensi harus .fa, .fasta, atau .fna.';
+    return 'Ekstensi genom referensi harus .fa, .fasta, atau .fna (boleh .gz).';
   }
   if (!content) return null;
   const lines = content.trim().split('\n').filter((l) => l.trim().length > 0);

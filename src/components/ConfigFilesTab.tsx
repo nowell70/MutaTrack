@@ -240,7 +240,9 @@ export const ConfigFilesTab: React.FC<ConfigFilesTabProps> = ({ analysis, onUpda
                 R1
               </div>
               <div>
-                <div className="text-xs font-semibold text-slate-200">{analysis.files.r1 || 'Tidak ada'}</div>
+                <div className="text-xs font-semibold text-slate-200" title={analysis.files.r1}>
+                  {analysis.files.r1 ? analysis.files.r1.split('/').pop() : 'Tidak ada'}
+                </div>
                 <div className="text-[11px] text-slate-400">FASTQ Forward Reads (Single / Paired-end)</div>
               </div>
             </div>
@@ -259,8 +261,8 @@ export const ConfigFilesTab: React.FC<ConfigFilesTabProps> = ({ analysis, onUpda
                 R2
               </div>
               <div>
-                <div className="text-xs font-semibold text-slate-200">
-                  {analysis.files.r2 || 'Tidak dikonfigurasi (Single-end)'}
+                <div className="text-xs font-semibold text-slate-200" title={analysis.files.r2}>
+                  {analysis.files.r2 ? analysis.files.r2.split('/').pop() : 'Tidak dikonfigurasi (Single-end)'}
                 </div>
                 <div className="text-[11px] text-slate-400">FASTQ Reverse Reads (Opsional)</div>
               </div>
@@ -286,8 +288,8 @@ export const ConfigFilesTab: React.FC<ConfigFilesTabProps> = ({ analysis, onUpda
                 REF
               </div>
               <div>
-                <div className="text-xs font-semibold text-slate-200">
-                  {analysis.files.reference || 'Tidak ada'}
+                <div className="text-xs font-semibold text-slate-200" title={analysis.files.reference}>
+                  {analysis.files.reference ? analysis.files.reference.split('/').pop() : 'Tidak ada'}
                 </div>
                 <div className="text-[11px] text-slate-400">FASTA Genom Referensi (E. coli K-12 MG1655 / Custom)</div>
               </div>

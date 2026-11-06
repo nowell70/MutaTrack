@@ -20,7 +20,14 @@ import {
   Terminal,
   Trash2,
 } from 'lucide-react';
-import { downloadCsv, downloadLog, downloadPdf, downloadVcf } from '../services/exportService';
+import {
+  downloadCsv,
+  downloadLog,
+  downloadPdf,
+  downloadVcf,
+  downloadBam,
+  downloadSam,
+} from '../services/exportService';
 
 interface AnalysisDetailProps {
   analysis: Analysis;
@@ -203,6 +210,26 @@ export const AnalysisDetail: React.FC<AnalysisDetailProps> = ({
                     >
                       <Terminal className="w-4 h-4 text-slate-400" />
                       <span>Unduh Log (.log)</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        downloadBam(analysis);
+                        setShowExportMenu(false);
+                      }}
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 rounded-lg cursor-pointer"
+                    >
+                      <Layers className="w-4 h-4 text-indigo-400" />
+                      <span>Unduh BAM (.bam)</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        downloadSam(analysis);
+                        setShowExportMenu(false);
+                      }}
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 rounded-lg cursor-pointer"
+                    >
+                      <Layers className="w-4 h-4 text-indigo-300" />
+                      <span>Unduh Teks SAM (.sam)</span>
                     </button>
                   </div>
                 )}

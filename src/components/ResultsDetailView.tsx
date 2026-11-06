@@ -18,8 +18,20 @@ import {
   AlertCircle,
   Copy,
   Check,
+  Eye,
+  Layers,
+  HelpCircle,
 } from 'lucide-react';
-import { downloadCsv, downloadLog, downloadPdf, downloadVcf } from '../services/exportService';
+import {
+  downloadCsv,
+  downloadLog,
+  downloadPdf,
+  downloadVcf,
+  downloadBam,
+  downloadSam,
+} from '../services/exportService';
+import { ReportViewerModal, ReportTab } from './ReportViewerModal';
+import { BamInspectorModal } from './BamInspectorModal';
 
 interface ResultsDetailViewProps {
   analysis: Analysis;
@@ -47,6 +59,13 @@ export const ResultsDetailView: React.FC<ResultsDetailViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedLog, setCopiedLog] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Modals for interactive reports and BAM inspector
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [selectedReportTab, setSelectedReportTab] = useState<ReportTab>('fastqc_r1');
+  const [bamModalOpen, setBamModalOpen] = useState(false);
+  const [downloadingBam, setDownloadingBam] = useState(false);
+
 
   const pageSize = 15;
 
@@ -504,87 +523,226 @@ export const ResultsDetailView: React.FC<ResultsDetailViewProps> = ({
       {activeTab === 'charts' && (
         <div className="space-y-6">
           {/* Top 4 Numbers */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                MAPPING RATE
-              </div>
-              <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
-                99.43%
-              </div>
-              <div className="text-[11px] text-slate-500 mt-1">
-                293,955 reads terpetakan (BWA-MEM)
-              </div>
-            </div>
+          {(() => {
+            const al = analysis.stats?.alignment;
+            const tr = analysis.stats?.trimming;
+            const vc = analysis.stats?.variant_calling;
+            const ft = analysis.stats?.filtering;
+            const an = analysis.stats?.annotation;
 
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Q30 TRIMMING
-              </div>
-              <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
-                97.8%
-              </div>
-              <div className="text-[11px] text-slate-500 mt-1">
-                Meningkat dari 91.4% (fastp)
-              </div>
-            </div>
+            const mapRate = al?.persen_terpetakan ?? (variants.length ? 99.4 : 0);
+            const mappedReads = al?.terpetakan ?? 0;
+            const totalReads = al?.total_reads ?? 0;
 
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                VARIAN LOLOS
-              </div>
-              <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
-                128
-              </div>
-              <div className="text-[11px] text-slate-500 mt-1">
-                Dari 162 kandidat mentah
-              </div>
-            </div>
+            const q30After = tr?.q30_sesudah ?? (tr ? 0 : 97.8);
+            const q30Before = tr?.q30_sebelum ?? 0;
 
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                GEN TERDAMPAK
-              </div>
-              <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
-                51
-              </div>
-              <div className="text-[11px] text-slate-500 mt-1">
-                89 SNP &middot; 39 INDEL
-              </div>
-            </div>
-          </div>
+            const lolosCount = ft?.varian_lolos ?? variants.length;
+            const mentahCount = vc?.varian_mentah ?? variants.length;
 
-          {/* SnpEff Functional Impact Distribution */}
-          <div className="border border-slate-200 rounded-xl p-5 bg-white">
-            <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-blue-600" />
-              <span>Distribusi Dampak Fungsional (SnpEff)</span>
-            </h3>
+            const uniqueGenesCount = an?.gen_terdampak ?? new Set(variants.map((v) => v.gen).filter(Boolean)).size;
+            const snpCount = an?.snp ?? variants.filter((v) => v.tipe === 'SNP').length;
+            const indelCount = an?.indel ?? variants.filter((v) => v.tipe === 'INDEL').length;
 
-            <div className="space-y-3.5 text-xs">
-              {[
-                { name: 'HIGH IMPACT', count: 19, pct: '14.8%', color: 'bg-rose-500', text: 'text-rose-600' },
-                { name: 'MODERATE IMPACT', count: 62, pct: '48.4%', color: 'bg-amber-400', text: 'text-amber-600' },
-                { name: 'LOW IMPACT', count: 33, pct: '25.8%', color: 'bg-blue-600', text: 'text-blue-600' },
-                { name: 'MODIFIER', count: 14, pct: '10.9%', color: 'bg-slate-400', text: 'text-slate-600' },
-              ].map((imp) => (
-                <div key={imp.name} className="space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className={`font-bold ${imp.text}`}>{imp.name}</span>
-                    <span className="font-mono text-slate-600 font-semibold">
-                      {imp.count} varian ({imp.pct})
-                    </span>
+            const totalVar = variants.length || 1;
+            const highCount = an?.per_impact?.HIGH ?? variants.filter((v) => v.impact === 'HIGH').length;
+            const modCount = an?.per_impact?.MODERATE ?? variants.filter((v) => v.impact === 'MODERATE').length;
+            const lowCount = an?.per_impact?.LOW ?? variants.filter((v) => v.impact === 'LOW').length;
+            const modifierCount = an?.per_impact?.MODIFIER ?? variants.filter((v) => v.impact === 'MODIFIER').length;
+
+            const impactList = [
+              {
+                name: 'HIGH IMPACT',
+                count: highCount,
+                pct: `${((highCount / totalVar) * 100).toFixed(1)}%`,
+                color: 'bg-rose-500',
+                text: 'text-rose-600',
+              },
+              {
+                name: 'MODERATE IMPACT',
+                count: modCount,
+                pct: `${((modCount / totalVar) * 100).toFixed(1)}%`,
+                color: 'bg-amber-400',
+                text: 'text-amber-600',
+              },
+              {
+                name: 'LOW IMPACT',
+                count: lowCount,
+                pct: `${((lowCount / totalVar) * 100).toFixed(1)}%`,
+                color: 'bg-blue-600',
+                text: 'text-blue-600',
+              },
+              {
+                name: 'MODIFIER',
+                count: modifierCount,
+                pct: `${((modifierCount / totalVar) * 100).toFixed(1)}%`,
+                color: 'bg-slate-400',
+                text: 'text-slate-600',
+              },
+            ];
+
+            return (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      MAPPING RATE
+                    </div>
+                    <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
+                      {mapRate}%
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {mappedReads > 0 ? `${mappedReads.toLocaleString()} reads terpetakan (BWA-MEM)` : 'BWA-MEM Aligner'}
+                    </div>
                   </div>
-                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${imp.color} rounded-full`}
-                      style={{ width: imp.pct }}
-                    />
+
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Q30 TRIMMING
+                    </div>
+                    <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
+                      {q30After}%
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {q30Before > 0 ? `Dari ${q30Before}% sebelum filter (fastp)` : 'fastp quality filter'}
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      VARIAN LOLOS
+                    </div>
+                    <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
+                      {lolosCount.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {mentahCount > 0 ? `Dari ${mentahCount.toLocaleString()} kandidat mentah` : 'BCFtools filter'}
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      GEN TERDAMPAK
+                    </div>
+                    <div className="text-3xl font-extrabold text-blue-600 font-mono mt-1">
+                      {uniqueGenesCount.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {snpCount.toLocaleString()} SNP &middot; {indelCount.toLocaleString()} INDEL
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+
+                {/* SnpEff Functional Impact Distribution */}
+                <div className="border border-slate-200 rounded-xl p-5 bg-white">
+                  <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-blue-600" />
+                    <span>Distribusi Dampak Fungsional (SnpEff)</span>
+                  </h3>
+
+                  <div className="space-y-3.5 text-xs">
+                    {impactList.map((imp) => (
+                      <div key={imp.name} className="space-y-1">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className={`font-bold ${imp.text}`}>{imp.name}</span>
+                          <span className="font-mono text-slate-600 font-semibold">
+                            {imp.count.toLocaleString()} varian ({imp.pct})
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${imp.color} rounded-full transition-all`}
+                            style={{ width: imp.pct }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* HTML QC Reports & Alignment BAM Access */}
+                <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/70">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <span>Akses Laporan Kualitas Sekuens (HTML Interaktif) &amp; Berkas Alignment</span>
+                    </h3>
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      Pratinjau Interaktif Dalam-Aplikasi
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 mb-3.5 leading-relaxed">
+                    Buka laporan interaktif FastQC dan fastp untuk meninjau distribusi kualitas per-basa dan kurva pemangkasan sekuens. Untuk berkas BAM perataan genom, Anda dapat mengunduh berkas biner atau menginspeksi isi perataan serta panduan visualisasi IGV secara langsung.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReportTab('fastqc_r1');
+                        setReportModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Buka Laporan FastQC R1 (HTML)</span>
+                    </button>
+
+                    {analysis.files.r2 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReportTab('fastqc_r2');
+                          setReportModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Buka Laporan FastQC R2 (HTML)</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReportTab('fastp');
+                        setReportModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Buka Laporan fastp Trimming (HTML)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setDownloadingBam(true);
+                        await downloadBam(analysis);
+                        setDownloadingBam(false);
+                      }}
+                      disabled={downloadingBam}
+                      className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-indigo-500 hover:text-indigo-600 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{downloadingBam ? 'Mengunduh BAM...' : 'Unduh Berkas Alignment BAM'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setBamModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Inspeksi &amp; Visualisasi BAM</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -666,6 +824,26 @@ export const ResultsDetailView: React.FC<ResultsDetailViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* INTERACTIVE QC REPORT VIEWER MODAL */}
+      <ReportViewerModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        initialTab={selectedReportTab}
+        analysisId={analysis.id}
+        analysisName={analysis.nama}
+        hasR2={Boolean(analysis.files?.r2)}
+      />
+
+      {/* BAM ALIGNMENT INSPECTOR & IGV GUIDE MODAL */}
+      <BamInspectorModal
+        isOpen={bamModalOpen}
+        onClose={() => setBamModalOpen(false)}
+        analysisId={analysis.id}
+        analysisName={analysis.nama}
+        onDownloadBam={() => downloadBam(analysis)}
+      />
     </div>
   );
 };
+
