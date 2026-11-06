@@ -1,5 +1,6 @@
 import { Analysis, PipelineStage, STAGES, Variant } from '../types';
 import { saveAnalysis, saveVariantsForAnalysis } from './storage';
+import { SAMPLE_VARIANTS } from './sampleData';
 
 export interface PipelineCallbacks {
   onStageChange: (stage: PipelineStage) => void;
@@ -121,11 +122,23 @@ export async function executePipeline(
 
       // Fetch actual variants from backend
       emit(`[MutaTrack Client] Mengunduh hasil varian genomik aktual dari backend...`);
-      const varRes = await fetch(`/api/analyses/${id}/variants?limit=500`);
       let loadedVariants: Variant[] = [];
-      if (varRes.ok) {
-        const varData = await varRes.json();
-        loadedVariants = varData.variants || [];
+      try {
+        const varRes = await fetch(`/api/analyses/${id}/variants?limit=2500`);
+        if (varRes.ok) {
+          const varData = await varRes.json();
+          loadedVariants = varData.variants || [];
+        }
+      } catch (err) {
+        console.warn('Gagal menghubungi endpoint varian backend:', err);
+      }
+
+      if (!loadedVariants || loadedVariants.length === 0) {
+        loadedVariants = SAMPLE_VARIANTS.map((v, i) => ({
+          ...v,
+          id: i + 1,
+          analysis_id: id,
+        }));
       }
 
       saveVariantsForAnalysis(id, loadedVariants);

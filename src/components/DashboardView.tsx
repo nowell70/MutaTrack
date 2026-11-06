@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, ChevronRight, Activity, GitFork } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, ChevronRight, Activity, GitFork, Trash2 } from 'lucide-react';
 import { Analysis } from '../types';
 
 interface DashboardViewProps {
@@ -8,6 +8,7 @@ interface DashboardViewProps {
   onOpenExample: () => void;
   onViewHistory: () => void;
   onSelectAnalysis: (analysis: Analysis) => void;
+  onDeleteAnalysis?: (id: string) => void;
   runningAnalysis?: Analysis | null;
 }
 
@@ -17,6 +18,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenExample,
   onViewHistory,
   onSelectAnalysis,
+  onDeleteAnalysis,
   runningAnalysis,
 }) => {
   const totalAnalyses = analyses.length;
@@ -142,16 +144,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div
                 key={a.id}
                 onClick={() => onSelectAnalysis(a)}
-                className="flex items-center justify-between py-4 hover:bg-slate-50/70 transition cursor-pointer px-1 text-xs"
+                className="group flex items-center justify-between py-4 hover:bg-slate-50/80 transition-all duration-300 ease-in-out cursor-pointer px-2 text-xs rounded-lg"
               >
                 <div className="flex items-start gap-3">
                   <span
-                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 transition-transform duration-300 ease-in-out group-hover:scale-125 ${
                       isFailed ? 'bg-rose-500' : 'bg-yellow-400'
                     }`}
                   />
                   <div>
-                    <div className="font-semibold text-slate-900 text-sm">{a.nama}</div>
+                    <div className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 transition-colors duration-300">
+                      {a.nama}
+                    </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
                       {a.organisme || 'Escherichia coli'} &middot;{' '}
                       {new Date(a.created_at).toLocaleDateString('id-ID', {
@@ -162,18 +166,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4 sm:gap-6">
                   <span className="text-slate-500 font-mono text-[11px]">
-                    {isFailed ? '&mdash;' : `${variantCount} varian`}
+                    {isFailed ? '—' : `${variantCount.toLocaleString('id-ID')} varian`}
                   </span>
                   <span
-                    className={`font-semibold ${
-                      isFailed ? 'text-rose-600' : 'text-blue-600'
+                    className={`font-semibold px-2 py-0.5 rounded text-[11px] transition-colors duration-300 ${
+                      isFailed ? 'text-rose-600 bg-rose-50' : 'text-blue-600 bg-blue-50'
                     }`}
                   >
                     {isFailed ? 'Gagal' : 'Berhasil'}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  {onDeleteAnalysis && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Hapus analisis "${a.nama}"?`)) {
+                          onDeleteAnalysis(a.id);
+                        }
+                      }}
+                      className="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition-all duration-300 ease-in-out cursor-pointer"
+                      title="Hapus analisis"
+                      aria-label="Hapus analisis"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-slate-300 transition-transform duration-300 ease-in-out group-hover:translate-x-1 group-hover:text-blue-500" />
                 </div>
               </div>
             );

@@ -4,7 +4,7 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 ALLOWED_FASTQ_EXTENSIONS = (".fastq", ".fq", ".fastq.gz", ".fq.gz")
-ALLOWED_FASTA_EXTENSIONS = (".fasta", ".fa", ".fna", ".fasta.gz", ".fa.gz", ".fna.gz")
+ALLOWED_FASTA_EXTENSIONS = (".fasta", ".fa", ".fna", ".rna", ".fasta.gz", ".fa.gz", ".fna.gz", ".rna.gz")
 
 # Maksimal ukuran berkas masukan (100 MB)
 MAX_FASTQ_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB

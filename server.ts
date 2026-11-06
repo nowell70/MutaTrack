@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 
-// Import report generators
+// Import report generators and sample variants
 import {
   generateFastQcHtml,
   generateFastpHtml,
@@ -12,14 +12,19 @@ import {
   FLAGSTAT_OUTPUT,
   SAMPLE_SAM_RECORDS,
 } from './src/services/reportData';
+import { SAMPLE_VARIANTS } from './src/services/sampleData';
 
 const PORT = 3000;
 const app = express();
 
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 const UPLOADS_DIR = path.resolve(process.cwd(), 'backend', 'data', 'uploads');
+const CHUNKS_DIR = path.resolve(UPLOADS_DIR, 'temp_chunks');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+if (!fs.existsSync(CHUNKS_DIR)) {
+  fs.mkdirSync(CHUNKS_DIR, { recursive: true });
 }
 
 // Multer storage for bioinformatic files (FASTQ & FASTA up to 100 MB)
@@ -31,6 +36,17 @@ const uploadStorage = multer.diskStorage({
     const cleanBaseName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const uniquePrefix = Date.now() + '_' + Math.random().toString(36).substring(2, 8);
     cb(null, `${uniquePrefix}_${cleanBaseName}`);
+  },
+});
+
+const chunkStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, CHUNKS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uploadId = (_req.body?.upload_id || 'upload').replace(/[^a-zA-Z0-9_-]/g, '');
+    const chunkIdx = _req.body?.chunk_index ?? Date.now();
+    cb(null, `${uploadId}_chunk_${chunkIdx}`);
   },
 });
 
@@ -47,20 +63,28 @@ const upload = multer({
       '.fasta',
       '.fa',
       '.fna',
+      '.rna',
       '.fasta.gz',
       '.fa.gz',
       '.fna.gz',
+      '.rna.gz',
+      '.gz',
     ];
     const isAllowed = validExtensions.some((ext) => name.endsWith(ext));
     if (!isAllowed) {
       return cb(
         new Error(
-          `Format berkas '${file.originalname}' tidak didukung. Format yang diterima: FASTQ (.fastq, .fq, .fastq.gz, .fq.gz) dan FASTA (.fasta, .fa, .fna, .fasta.gz, .fa.gz, .fna.gz).`
+          `Format berkas '${file.originalname}' tidak didukung. Format yang diterima: FASTQ (.fastq, .fq, .fastq.gz, .fq.gz), FASTA/RNA (.fasta, .fa, .fna, .rna, .gz).`
         )
       );
     }
     cb(null, true);
   },
+});
+
+const uploadChunk = multer({
+  storage: chunkStorage,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30 MB chunk limit
 });
 
 app.use(express.json({ limit: '100mb' }));
@@ -217,6 +241,67 @@ app.post('/api/upload', (req, res) => {
   });
 });
 
+// 2b. Chunked Upload Endpoint (Bypasses Cloud Run 32 MB request limit by uploading in chunks)
+app.post('/api/upload-chunk', (req, res) => {
+  uploadChunk.single('chunk')(req, res, async (err: any) => {
+    if (err) {
+      return res.status(400).json({ detail: `Gagal mengunggah chunk: ${err.message}` });
+    }
+
+    const uploadId = (req.body?.upload_id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const chunkIndex = parseInt(req.body?.chunk_index ?? '-1', 10);
+    const totalChunks = parseInt(req.body?.total_chunks ?? '1', 10);
+    const originalName = req.body?.filename || 'uploaded_file';
+    const fileType = req.body?.file_type || 'generic';
+
+    if (!uploadId || chunkIndex < 0 || !totalChunks) {
+      return res.status(400).json({ detail: 'Parameter chunk tidak lengkap.' });
+    }
+
+    // Check if this is the last chunk
+    if (chunkIndex + 1 === totalChunks) {
+      try {
+        const cleanBaseName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const uniquePrefix = Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        const finalDestPath = path.join(UPLOADS_DIR, `${uniquePrefix}_${cleanBaseName}`);
+
+        const writeStream = fs.createWriteStream(finalDestPath);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkPath = path.join(CHUNKS_DIR, `${uploadId}_chunk_${i}`);
+          if (fs.existsSync(chunkPath)) {
+            const data = fs.readFileSync(chunkPath);
+            writeStream.write(data);
+            try {
+              fs.unlinkSync(chunkPath);
+            } catch {}
+          }
+        }
+        writeStream.end();
+
+        const stat = fs.statSync(finalDestPath);
+        return res.json({
+          success: true,
+          complete: true,
+          filename: originalName,
+          filepath: finalDestPath,
+          size: stat.size,
+          file_type: fileType,
+        });
+      } catch (mergeErr: any) {
+        return res.status(500).json({ detail: `Gagal menggabungkan berkas: ${mergeErr.message}` });
+      }
+    }
+
+    return res.json({
+      success: true,
+      complete: false,
+      chunk_index: chunkIndex,
+      total_chunks: totalChunks,
+    });
+  });
+});
+
 // 3. Validate Inputs
 app.post('/api/analyses/validate', (req, res) => {
   const r1 = req.body?.r1_path || req.body?.r1;
@@ -247,9 +332,9 @@ app.post('/api/analyses/validate', (req, res) => {
     }
   }
 
-  const isRefValid = ['.fasta', '.fa', '.fna', '.fasta.gz', '.fa.gz', '.fna.gz'].some((ext) => reference.toLowerCase().endsWith(ext));
+  const isRefValid = ['.fasta', '.fa', '.fna', '.rna', '.fasta.gz', '.fa.gz', '.fna.gz', '.rna.gz'].some((ext) => reference.toLowerCase().endsWith(ext));
   if (!isRefValid) {
-    return res.status(400).json({ detail: `Format genom referensi '${path.basename(reference)}' tidak valid. Gunakan .fasta, .fa, .fna (atau .gz).` });
+    return res.status(400).json({ detail: `Format genom referensi '${path.basename(reference)}' tidak valid. Gunakan .fasta, .fa, .fna, atau .rna (boleh .gz).` });
   }
 
   // Estimate or calculate read counts based on file size if on disk
@@ -368,6 +453,15 @@ app.post('/api/analyses/:id/cancel', (req, res) => {
   res.json({ id: job.id, status: 'dibatalkan' });
 });
 
+// 5b. Delete Analysis
+app.delete('/api/analyses/:id', (req, res) => {
+  const { id } = req.params;
+  if (JOBS[id]) {
+    delete JOBS[id];
+  }
+  res.json({ success: true, message: `Analisis ${id} berhasil dihapus.` });
+});
+
 // 6. Get Analysis Details
 app.get('/api/analyses/:id', (req, res) => {
   const { id } = req.params;
@@ -385,11 +479,16 @@ app.get('/api/analyses/:id/logs', (req, res) => {
 // 8. Get Analysis Variants
 app.get('/api/analyses/:id/variants', (req, res) => {
   const { id } = req.params;
-  // Return sample variants
+  const limit = parseInt(String(req.query.limit || '2500'), 10);
+  const variantsWithId = SAMPLE_VARIANTS.slice(0, limit).map((v, idx) => ({
+    ...v,
+    id: idx + 1,
+    analysis_id: id,
+  }));
   res.json({
     analysis_id: id,
-    total: 2240,
-    variants: [],
+    total: SAMPLE_VARIANTS.length,
+    variants: variantsWithId,
   });
 });
 

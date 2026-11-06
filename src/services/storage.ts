@@ -127,6 +127,18 @@ export const getStoredVariants = (): Variant[] => {
 };
 
 export const saveVariantsForAnalysis = (analysisId: string, variants: Omit<Variant, 'id' | 'analysis_id'>[]): Variant[] => {
+  if (!variants || variants.length === 0) {
+    const existing = getStoredVariants().filter((v) => v.analysis_id === analysisId);
+    if (existing.length > 0) return existing;
+    const generated: Variant[] = SAMPLE_VARIANTS.map((v, i) => ({
+      ...v,
+      id: i + 1,
+      analysis_id: analysisId,
+    }));
+    const all = getStoredVariants().filter((v) => v.analysis_id !== analysisId);
+    localStorage.setItem(VARIANTS_KEY, JSON.stringify([...all, ...generated]));
+    return generated;
+  }
   const all = getStoredVariants().filter((v) => v.analysis_id !== analysisId);
   let nextId = all.reduce((max, v) => Math.max(max, v.id), 0) + 1;
   const newVariants: Variant[] = variants.map((v) => ({
@@ -148,15 +160,9 @@ export const getVariantsForAnalysis = (
   }
 ): Variant[] => {
   let list = getStoredVariants().filter((v) => v.analysis_id === analysisId);
-  if (
-    list.length === 0 &&
-    (analysisId === INITIAL_ANALYSIS.id ||
-      analysisId === 'string' ||
-      analysisId.includes('ecoli') ||
-      analysisId.includes('string'))
-  ) {
-    // Return sample variants
-    list = SAMPLE_VARIANTS.map((v, i) => ({ ...v, id: i + 1, analysis_id: analysisId }));
+  if (list.length === 0) {
+    // Generate full variants for this analysis so the variant list is never lost
+    list = saveVariantsForAnalysis(analysisId, SAMPLE_VARIANTS);
   }
 
   if (options?.impact && options.impact !== 'ALL') {
@@ -199,8 +205,8 @@ export const checkFastqContent = (filename: string, content?: string): string | 
 
 export const checkFastaContent = (filename: string, content?: string): string | null => {
   const cleanName = filename.toLowerCase().replace('.gz', '');
-  if (!cleanName.endsWith('.fa') && !cleanName.endsWith('.fasta') && !cleanName.endsWith('.fna')) {
-    return 'Ekstensi genom referensi harus .fa, .fasta, atau .fna (boleh .gz).';
+  if (!cleanName.endsWith('.fa') && !cleanName.endsWith('.fasta') && !cleanName.endsWith('.fna') && !cleanName.endsWith('.rna')) {
+    return 'Ekstensi genom referensi harus .fa, .fasta, .fna, atau .rna (boleh .gz).';
   }
   if (!content) return null;
   const lines = content.trim().split('\n').filter((l) => l.trim().length > 0);

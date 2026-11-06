@@ -5,6 +5,7 @@ import {
   getStoredAnalyses,
   getVariantsForAnalysis,
   saveAnalysis,
+  deleteAnalysis,
 } from './services/storage';
 import { executePipeline } from './services/pipelineRunner';
 import { Header } from './components/Header';
@@ -106,6 +107,22 @@ export const App: React.FC = () => {
     handleRunPipeline(newAnalysis);
   };
 
+  const handleDeleteAnalysis = (id: string) => {
+    deleteAnalysis(id);
+    fetch(`/api/analyses/${id}`, { method: 'DELETE' }).catch(() => {});
+    const updated = getStoredAnalyses();
+    setAnalyses(updated);
+    if (selectedAnalysis?.id === id) {
+      const nextActive = updated[0] || null;
+      setSelectedAnalysis(nextActive);
+      if (nextActive) {
+        setVariants(getVariantsForAnalysis(nextActive.id));
+      } else {
+        setVariants([]);
+      }
+    }
+  };
+
   const handleLogout = () => {
     logout();
     setCurrentView('landing');
@@ -173,6 +190,7 @@ export const App: React.FC = () => {
                   onOpenExample={() => setCurrentView('example')}
                   onViewHistory={() => setCurrentView('history')}
                   onSelectAnalysis={handleSelectAnalysis}
+                  onDeleteAnalysis={handleDeleteAnalysis}
                   runningAnalysis={isExecuting ? selectedAnalysis : null}
                 />
               )}
@@ -185,6 +203,7 @@ export const App: React.FC = () => {
                 <HistoryView
                   analyses={analyses}
                   onSelectAnalysis={handleSelectAnalysis}
+                  onDeleteAnalysis={handleDeleteAnalysis}
                 />
               )}
 

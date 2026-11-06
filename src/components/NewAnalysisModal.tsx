@@ -50,6 +50,43 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
 
   const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
+  const uploadFileInChunks = async (
+    file: File,
+    target: 'r1' | 'r2' | 'ref'
+  ): Promise<string> => {
+    const CHUNK_SIZE = 8 * 1024 * 1024;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = 'up_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    let finalPath = '';
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunkBlob = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append('chunk', chunkBlob, file.name);
+      formData.append('upload_id', uploadId);
+      formData.append('chunk_index', String(chunkIndex));
+      formData.append('total_chunks', String(totalChunks));
+      formData.append('filename', file.name);
+      formData.append('file_type', target);
+
+      const res = await fetch('/api/upload-chunk', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.complete && resData.filepath) {
+          finalPath = resData.filepath;
+        }
+      }
+    }
+    return finalPath || file.name;
+  };
+
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'r1' | 'r2' | 'ref'
@@ -67,32 +104,44 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
       return;
     }
 
-    if (type === 'r1') setR1FileName(file.name);
-    else if (type === 'r2') setR2FileName(file.name);
-    else setRefFileName(file.name);
+    if (type === 'r1') {
+      setR1FileName(file.name);
+      setR1Path(file.name);
+    } else if (type === 'r2') {
+      setR2FileName(file.name);
+      setR2Path(file.name);
+    } else {
+      setRefFileName(file.name);
+      setRefPath(file.name);
+    }
 
     setUploadingTarget(type);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('file_type', type);
+      let serverPath = '';
+      if (file.size <= 20 * 1024 * 1024) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('file_type', type);
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (type === 'r1') setR1Path(data.filepath);
-        else if (type === 'r2') setR2Path(data.filepath);
-        else setRefPath(data.filepath);
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          serverPath = data.filepath;
+        }
       } else {
-        const errJson = await res.json().catch(() => ({}));
-        setValidationErrors([errJson.detail || `Gagal mengunggah ${file.name}`]);
-        setValidated(true);
+        serverPath = await uploadFileInChunks(file, type);
+      }
+
+      if (serverPath) {
+        if (type === 'r1') setR1Path(serverPath);
+        else if (type === 'r2') setR2Path(serverPath);
+        else setRefPath(serverPath);
       }
     } catch {
-      // Fallback
+      // Graceful fallback to client file
     } finally {
       setUploadingTarget(null);
     }
@@ -239,7 +288,10 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                 <span>{uploadingTarget === 'r1' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz"
+                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz,application/gzip,application/x-gzip,text/plain"
+                  onClick={(e) => {
+                    (e.target as HTMLInputElement).value = '';
+                  }}
                   onChange={(e) => handleFileUpload(e, 'r1')}
                   disabled={uploadingTarget !== null}
                   className="hidden"
@@ -265,7 +317,10 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                 <span>{uploadingTarget === 'r2' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz"
+                  accept=".fastq,.fq,.gz,.fastq.gz,.fq.gz,application/gzip,application/x-gzip,text/plain"
+                  onClick={(e) => {
+                    (e.target as HTMLInputElement).value = '';
+                  }}
                   onChange={(e) => handleFileUpload(e, 'r2')}
                   disabled={uploadingTarget !== null}
                   className="hidden"
@@ -281,9 +336,9 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                 </div>
                 <div>
                   <div className="font-medium text-slate-200">
-                    {refFileName || 'Genom Referensi FASTA (Wajib)'}
+                    {refFileName || 'Genom Referensi FASTA/RNA (Wajib)'}
                   </div>
-                  <div className="text-[10px] text-slate-500">.fa, .fasta, .fna, atau .gz • Maks. 100 MB</div>
+                  <div className="text-[10px] text-slate-500">.fa, .fasta, .fna, .rna, atau .gz • Maks. 100 MB</div>
                 </div>
               </div>
               <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1.5">
@@ -291,7 +346,10 @@ export const NewAnalysisModal: React.FC<NewAnalysisModalProps> = ({ isOpen, onCl
                 <span>{uploadingTarget === 'ref' ? 'Mengunggah...' : 'Pilih Berkas'}</span>
                 <input
                   type="file"
-                  accept=".fa,.fasta,.fna,.gz,.fa.gz,.fasta.gz,.fna.gz"
+                  accept=".fa,.fasta,.fna,.rna,.gz,.fa.gz,.fasta.gz,.fna.gz,.rna.gz,application/gzip,application/x-gzip,text/plain"
+                  onClick={(e) => {
+                    (e.target as HTMLInputElement).value = '';
+                  }}
                   onChange={(e) => handleFileUpload(e, 'ref')}
                   disabled={uploadingTarget !== null}
                   className="hidden"
